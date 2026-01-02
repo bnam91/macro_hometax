@@ -4,11 +4,12 @@
  * - startUrl: 처음 열 탭의 URL
  */
 module.exports = {
-  userDataParent: 'C:\\\\Users\\\\신현빈\\\\Desktop\\\\github\\\\user_data',
+  userDataParent: '/Users/a1/Documents/github_cloud/user_data',
   // startUrl: 'https://www.google.com',
   startUrl: 'https://hometax.go.kr/',
   // 인증서 선택창에서 사용할 드라이브 이름(포함 매칭). 예: 'Seagate', '로컬 디스크 (C)'
-  driveName: 'Seagate Backup Plus Drive',
+  // CERT_001 (1) 같은 경우, 뒤의 (1)은 변수이므로 'CERT_001'로 시작하는지 확인
+  driveName: 'CERT_001',
   // driveIndex: 1, // 이름 대신 순번(0부터)으로 선택하고 싶다면 사용
   // 인증서 목록에서 선택할 이름(포함 매칭)
   certName: '신현빈(goyaandmedia)',

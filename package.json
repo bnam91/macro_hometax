@@ -4,9 +4,13 @@
   "description": "크롬 자동 실행 스크립트",
   "main": "index.js",
   "scripts": {
-    "start": "node run-profile.js",
+    "start": "node run-taxgo.js",
     "start:secret": "node index-secret.js",
-    "start:profile": "node run-profile.js"
+    "start:profile": "node run-taxgo.js",
+    "taxgo": "node run-taxgo.js",
+    "taxgo:dev": "NODE_ENV=development node run-taxgo.js dev",
+    "hometax": "node run-hometax.js",
+    "hometax:dev": "NODE_ENV=development node run-hometax.js dev"
   },
   "keywords": [
     "puppeteer",

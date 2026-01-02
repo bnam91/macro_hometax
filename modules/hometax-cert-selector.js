@@ -4,13 +4,14 @@ const HDD_BUTTON_SELECTOR = '#stg_hdd';
 const DRIVER_MENU_SELECTOR = '#driver_div';
 const CERT_TABLE_SELECTOR = '#tabledataTable';
 const RETRY_MOUSE_EVENTS = ['mouseover', 'mouseenter', 'mousedown', 'mouseup', 'click'];
+const { devLog, devWarn } = require('./dev-mode');
 const CONFIG = (() => {
   try {
     // 모듈 캐시 무시하고 최신 config 로드
     delete require.cache[require.resolve('../config')];
     return require('../config');
   } catch (err) {
-    console.log('⚠️ config 로드 실패, 드라이브 선택은 기본값으로 진행:', err.message);
+    devWarn('⚠️ config 로드 실패, 드라이브 선택은 기본값으로 진행:', err.message);
     return {};
   }
 })();
@@ -53,15 +54,29 @@ async function waitForDriverMenuVisible(frame, timeoutMs = 5000) {
   return false;
 }
 
+async function logDriveList(frame) {
+  try {
+    await frame.waitForSelector('#sub_drv_list li', { timeout: 3000 });
+    const items = await frame.$$('#sub_drv_list li');
+    const driveTexts = await Promise.all(
+      items.map((item) => item.$eval('a', (a) => a.textContent.trim())),
+    );
+    devLog(`ℹ️ 드라이브 목록 (${driveTexts.length}개):`);
+    driveTexts.forEach((txt, idx) => devLog(`  [${idx}] ${txt}`));
+  } catch (err) {
+    devWarn(`⚠️ 드라이브 목록 로깅 실패: ${err.message}`);
+  }
+}
+
 async function logCertificateList(frame) {
   try {
     const rows = await frame.$$eval(`${CERT_TABLE_SELECTOR} tbody tr`, (trs) =>
       trs.map((tr) => tr.innerText.trim()),
     );
-    console.log(`ℹ️ 인증서 목록 (${rows.length}개):`);
-    rows.forEach((txt, idx) => console.log(`  [${idx}] ${txt}`));
+    devLog(`ℹ️ 인증서 목록 (${rows.length}개):`);
+    rows.forEach((txt, idx) => devLog(`  [${idx}] ${txt}`));
   } catch (err) {
-    console.log(`⚠️ 인증서 목록 로깅 실패: ${err.message}`);
+    devWarn(`⚠️ 인증서 목록 로깅 실패: ${err.message}`);
   }
 }
 
@@ -72,43 +87,74 @@ async function pickDrive(frame) {
   // 리스트 등장 대기
   await frame.waitForSelector('#sub_drv_list li', { timeout: 3000 });
   const items = await frame.$$('#sub_drv_list li');
+  
+  // 드라이브 목록 출력
+  await logDriveList(frame);
 
   if (driveName) {
-    // 이름 포함 매칭
+    // 이름 매칭 (CERT_001 (1) 같은 경우, 'CERT_001'로 시작하는지 확인)
     for (let i = 0; i < items.length; i++) {
       const text = await items[i].$eval('a', (a) => a.textContent.trim());
-      if (text.includes(driveName)) {
+      if (text.startsWith(driveName)) {
         await items[i].click();
-        console.log(`✅ 드라이브 이름 매칭 클릭: "${text}"`);
+        devLog(`✅ 드라이브 이름 매칭 클릭: "${text}"`);
+        // 드라이브 클릭 후 인증서 목록 로드 대기
+        await frame.waitForTimeout(1000);
         return;
       }
     }
-    console.log(`⚠️ 이름 매칭 실패: "${driveName}"`);
+    devWarn(`⚠️ 이름 매칭 실패: "${driveName}"`);
   }
 
   if (Number.isInteger(driveIndex) && driveIndex >= 0 && driveIndex < items.length) {
     const text = await items[driveIndex].$eval('a', (a) => a.textContent.trim());
     await items[driveIndex].click();
-    console.log(`✅ 드라이브 인덱스(${driveIndex}) 클릭: "${text}"`);
+    devLog(`✅ 드라이브 인덱스(${driveIndex}) 클릭: "${text}"`);
+    // 드라이브 클릭 후 인증서 목록 로드 대기
+    await frame.waitForTimeout(1000);
     return;
   }
 
   // fallback: 첫 번째 항목
   const text = await items[0].$eval('a', (a) => a.textContent.trim());
   await items[0].click();
-  console.log(`⚠️ 설정에 맞는 드라이브를 찾지 못해 첫 항목 클릭: "${text}"`);
+  devWarn(`⚠️ 설정에 맞는 드라이브를 찾지 못해 첫 항목 클릭: "${text}"`);
+  // 드라이브 클릭 후 인증서 목록 로드 대기
+  await frame.waitForTimeout(1000);
 }
 
 async function pickCertificate(frame) {
   const certName = CONFIG.certName;
   const certIndex = CONFIG.certIndex;
 
+  // 테이블이 나타날 때까지 대기
   await frame.waitForSelector(`${CERT_TABLE_SELECTOR} tbody tr`, { timeout: 5000 });
+  
+  // 실제 인증서 데이터가 로드될 때까지 대기 (placeholder가 아닌 실제 데이터)
+  // 최대 5초 동안 대기하며, 실제 인증서 데이터가 나타나는지 확인
+  let rowTexts = [];
+  let hasRealData = false;
+  const maxWaitTime = 5000;
+  const checkInterval = 300;
+  const startTime = Date.now();
+  
+  while (Date.now() - startTime < maxWaitTime) {
+    rowTexts = await frame.$$eval(`${CERT_TABLE_SELECTOR} tbody tr`, (trs) =>
+      trs.map((tr) => tr.innerText.trim()),
+    );
+    
+    // 실제 인증서 데이터가 있는지 확인 (placeholder가 아닌 경우)
+    hasRealData = rowTexts.length > 0 && 
+      !rowTexts.every((txt) => txt.includes('인증서 정보가 없습니다.'));
+    
+    if (hasRealData) {
+      break;
+    }
+    
+    await frame.waitForTimeout(checkInterval);
+  }
+  
   await logCertificateList(frame);
-
-  const rowTexts = await frame.$$eval(`${CERT_TABLE_SELECTOR} tbody tr`, (trs) =>
-    trs.map((tr) => tr.innerText.trim()),
-  );
 
   // 유효 인증서가 없는 경우 (placeholder만 있는 경우)
   if (
@@ -130,7 +176,7 @@ async function pickCertificate(frame) {
       }
     }
     if (!rowTexts[targetIndex]?.includes(certName)) {
-      console.log(`⚠️ 인증서 이름 매칭 실패: "${certName}"`);
+      devWarn(`⚠️ 인증서 이름 매칭 실패: "${certName}"`);
     }
   }
 
@@ -170,8 +216,8 @@ async function pickCertificate(frame) {
     targetIndex,
   );
 
-  console.log(`✅ 인증서 클릭 시도: [${targetIndex}] ${pickedText}`);
-  console.log(`ℹ️ 선택 상태: selected=${selectedInfo.selected}, class=${selectedInfo.className}`);
+  devLog(`✅ 인증서 클릭 시도: [${targetIndex}] ${pickedText}`);
+  devLog(`ℹ️ 선택 상태: selected=${selectedInfo.selected}, class=${selectedInfo.className}`);
 
   return { pickedText, targetIndex, hasCert: true };
 }
@@ -184,11 +230,11 @@ async function pickCertificate(frame) {
 async function clickHddButtonOnCertModal(page, timeoutMs = DEFAULT_TIMEOUT) {
   // 모달 등장 대기
   const modalFound = await waitForSelectorInAnyFrame(page, MODAL_SELECTOR, { timeout: timeoutMs });
-  console.log(`✅ 인증서 선택창 감지 (frame url: ${modalFound.frame.url() || 'about:blank'})`);
+  devLog(`✅ 인증서 선택창 감지 (frame url: ${modalFound.frame.url() || 'about:blank'})`);
 
   // 버튼 클릭
   const { frame } = await waitForSelectorInAnyFrame(page, HDD_BUTTON_SELECTOR, { timeout: timeoutMs });
-  console.log(`ℹ️ 버튼이 있는 frame url: ${frame.url() || 'about:blank'}`);
+  devLog(`ℹ️ 버튼이 있는 frame url: ${frame.url() || 'about:blank'}`);
 
   const btnHandle = await frame.$(HDD_BUTTON_SELECTOR);
 
@@ -205,17 +251,17 @@ async function clickHddButtonOnCertModal(page, timeoutMs = DEFAULT_TIMEOUT) {
     btnHandle,
     DRIVER_MENU_SELECTOR,
   );
-  console.log(`ℹ️ 클릭 전 상태: btnDisplay=${before.btnDisplay}, driverDisplay=${before.driverDisplay}, btnClasses=${before.btnClasses}`);
+  devLog(`ℹ️ 클릭 전 상태: btnDisplay=${before.btnDisplay}, driverDisplay=${before.driverDisplay}, btnClasses=${before.btnClasses}`);
 
   await btnHandle.hover();
   await btnHandle.click({ delay: 50 });
-  console.log('✅ 하드디스크/이동식 버튼 기본 클릭 시도');
+  devLog('✅ 하드디스크/이동식 버튼 기본 클릭 시도');
 
   let shown = await waitForDriverMenuVisible(frame, 3000);
 
   // 보이지 않으면 마우스 이벤트를 한번 더 강제 발생
   if (!shown) {
-    console.log('⚠️ 드라이브 목록이 보이지 않아 추가 이벤트 시도');
+    devWarn('⚠️ 드라이브 목록이 보이지 않아 추가 이벤트 시도');
     await frame.evaluate(
       (selector, events) => {
         const el = document.querySelector(selector);
@@ -232,7 +278,7 @@ async function clickHddButtonOnCertModal(page, timeoutMs = DEFAULT_TIMEOUT) {
   }
 
   if (shown) {
-    console.log('✅ 드라이브 목록 표시됨');
+    devLog('✅ 드라이브 목록 표시됨');
     await pickDrive(frame);
     const picked = await pickCertificate(frame);
     return picked;
@@ -247,9 +293,9 @@ async function clickHddButtonOnCertModal(page, timeoutMs = DEFAULT_TIMEOUT) {
         html: driver.outerHTML.substring(0, 200),
       };
     }, DRIVER_MENU_SELECTOR);
-    console.log(`❌ 드라이브 목록 표시 실패. 상태: ${JSON.stringify(after)}`);
+    devWarn(`❌ 드라이브 목록 표시 실패. 상태: ${JSON.stringify(after)}`);
   }
 }
 
-module.exports = { clickHddButtonOnCertModal, waitForSelectorInAnyFrame };
+module.exports = { clickHddButtonOnCertModal, waitForSelectorInAnyFrame, logDriveList };
 

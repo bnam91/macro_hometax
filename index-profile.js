@@ -13,7 +13,10 @@ const rl = readline.createInterface({
 // 사용자 입력을 Promise로 변환하는 헬퍼 함수
 function question(prompt) {
   return new Promise((resolve) => {
-    rl.question(prompt, resolve);
+    rl.question(prompt, (answer) => {
+      // 입력을 trim하여 앞뒤 공백 제거 (중복 입력 방지)
+      resolve(answer.trim());
+    });
   });
 }
 
@@ -369,5 +372,5 @@ if (require.main === module) {
   openCoupang();
 }
 
-module.exports = { openCoupang, openCoupangWithPage };
+module.exports = { openCoupang, openCoupangWithPage, rl };
 

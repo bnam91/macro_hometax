@@ -1,5 +1,5 @@
 // index-profile 모듈과 홈택스 대기 모듈을 사용해 자동화 실행
-const { openCoupangWithPage } = require('./index-profile');
+const { openCoupangWithPage, rl } = require('./index-profile');
 const { waitForLoginSuccess } = require('./modules/hometax-waiter');
 const { clickHddButtonOnCertModal } = require('./modules/hometax-cert-selector');
 const { inputCertPassword } = require('./modules/hometax-password');
@@ -15,6 +15,13 @@ const { ensureClaimSelected } = require('./modules/hometax-receipt');
 const { logTotals } = require('./modules/hometax-totals');
 const { getFirstActiveRow } = require('./modules/sheet-data');
 const { clickIssueButton, waitForUserConfirmClick } = require('./modules/hometax-issue');
+const { confirmRetry } = require('./modules/dev-confirm');
+
+// 개발자 모드 확인
+const isDevMode = process.argv.includes('dev') || process.env.NODE_ENV === 'development';
+if (isDevMode) {
+  console.log('🔧 개발자 모드로 실행합니다.');
+}
 
 function isContextDestroyed(err) {
   const msg = String(err || '');
@@ -100,8 +107,17 @@ function isContextDestroyed(err) {
           if (picked?.hasCert === false) {
             console.log('⚠️ 유효한 인증서가 없어 비밀번호 입력을 건너뜁니다.');
             if (attempt < maxAttempts) {
-              console.log('ℹ️ 잠시 대기 후 인증서 목록을 다시 확인합니다.');
-              await page.waitForTimeout(1200);
+              // 개발자 모드에서는 사용자 확인 후 재시도
+              if (isDevMode) {
+                const shouldRetry = await confirmRetry(`[시도 ${attempt}/${maxAttempts}] 재시도 할까요? (Enter: 재시도, 다른 키: 중단)`, rl);
+                if (!shouldRetry) {
+                  console.log('⚠️ 사용자가 재시도를 중단했습니다.');
+                  break;
+                }
+              } else {
+                console.log('ℹ️ 잠시 대기 후 인증서 목록을 다시 확인합니다.');
+                await page.waitForTimeout(1200);
+              }
               continue;
             } else {
               console.log('⚠️ 재시도 한도를 초과했습니다. 드라이브/인증서를 확인해주세요.');
