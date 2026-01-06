@@ -16,6 +16,7 @@ const { logTotals } = require('./modules/hometax-totals');
 const { getFirstActiveRow } = require('./modules/sheet-data');
 const { clickIssueButton, waitForUserConfirmClick } = require('./modules/hometax-issue');
 const { confirmRetry } = require('./modules/dev-confirm');
+const { checkSheetInput, setReadlineInterface } = require('./modules/sheet-input-check');
 
 // 개발자 모드 확인
 const isDevMode = process.argv.includes('dev') || process.env.NODE_ENV === 'development';
@@ -34,6 +35,15 @@ function isContextDestroyed(err) {
 }
 
 (async () => {
+  // readline 인터페이스는 index-profile.js에서 이미 생성됨
+  // sheet-input-check에서도 같은 인터페이스 사용
+  const { rl: sharedRl } = require('./index-profile');
+  setReadlineInterface(sharedRl);
+  
+  // 구글시트 입력 확인 (프로필 선택 전에 먼저 실행)
+  await checkSheetInput();
+
+  // 프로필 선택 및 브라우저 열기
   const result = await openCoupangWithPage();
   if (!result) return;
 
@@ -44,7 +54,11 @@ function isContextDestroyed(err) {
   const sheetRow = await getFirstActiveRow();
   if (!sheetRow) {
     console.log('⚠️ 시트에서 Y/y 행을 찾지 못했습니다. 실행을 종료합니다.');
-    return;
+    const { rl: sharedRl } = require('./index-profile');
+    if (sharedRl && !sharedRl.closed) {
+      sharedRl.close();
+    }
+    process.exit(1);
   }
 
   // 시트 값 매핑
@@ -169,6 +183,12 @@ function isContextDestroyed(err) {
     }
   } catch (error) {
     console.error('자동화 중단:', error.message);
+  } finally {
+    // 프로세스 종료 시 readline 인터페이스 닫기
+    const { rl: sharedRl } = require('./index-profile');
+    if (sharedRl && !sharedRl.closed) {
+      sharedRl.close();
+    }
   }
 
   // 브라우저를 열린 상태로 유지

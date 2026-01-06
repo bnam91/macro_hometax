@@ -1,0 +1,22 @@
+홈택스 시트에 입력해두면 자동으로 처리가 됨.
+인증서 선택까지는 되나
+비밀번호 입력까지 안됨
+
+y 부분 업뎃되게하기
+https://docs.google.com/spreadsheets/d/1mFlHEtlYZXUWTLIpJ2jUKCuvIzHyP4jxvzT1HXpPkzg/edit?gid=2144733096#gid=2144733096
+
+
+===
+
+npm run taxgo          # ✅ 홈택 계산서 발ㅇ 정확한 명령어
+npm start              # ✅ 이것도 같은 기능 (별칭)
+npm run taxgo:dev      # 개발자 모드
+npm run hometax        # 홈택스 로그인만
+npm run hometax:dev    # 홈택스 로그인만 (개발자 모드)
+
+run-hometax.js 
+홈택스 로그인
+
+run-taxgo.js
+홈택스 계산서 발행하기
+

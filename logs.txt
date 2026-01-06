@@ -1,6 +1,0 @@
-홈택스 시트에 입력해두면 자동으로 처리가 됨.
-인증서 선택까지는 되나
-비밀번호 입력까지 안됨
-
-y 부분 업뎃되게하기
-https://docs.google.com/spreadsheets/d/1mFlHEtlYZXUWTLIpJ2jUKCuvIzHyP4jxvzT1HXpPkzg/edit?gid=2144733096#gid=2144733096

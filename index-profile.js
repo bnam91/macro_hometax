@@ -4,7 +4,7 @@ const fsPromises = require('fs').promises;
 const path = require('path');
 const readline = require('readline');
 
-// readline 인터페이스 생성
+// readline 인터페이스 생성 (한 번만 생성)
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout
@@ -331,11 +331,12 @@ async function openCoupangWithPage() {
     // 브라우저 종료 감지
     browser.on('disconnected', () => {
       console.log('브라우저가 닫혔습니다.');
+      rl.close();
       process.exit(0);
     });
 
-    // 입력 인터페이스 정리
-    rl.close();
+    // 입력 인터페이스는 나중에 닫도록 함 (다른 모듈에서 사용할 수 있도록)
+    // rl.close()는 프로세스 종료 시점에 닫음
 
     return { browser, page };
   } catch (error) {
