@@ -2,7 +2,7 @@
   "name": "mac-chomeset",
   "version": "1.0.0",
   "description": "크롬 자동 실행 스크립트",
-  "main": "index.js",
+  "main": "run-taxgo.js",
   "scripts": {
     "start": "node run-taxgo.js",
     "start:secret": "node index-secret.js",

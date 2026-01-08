@@ -1,0 +1,3 @@
+[submodule "submodules/module_update_auto"]
+	path = submodules/module_update_auto
+	url = https://github.com/bnam91/module_update_auto.git
