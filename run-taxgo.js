@@ -17,6 +17,7 @@ const { getFirstActiveRow } = require('./modules/sheet-data');
 const { clickIssueButton, waitForUserConfirmClick } = require('./modules/hometax-issue');
 const { confirmRetry } = require('./modules/dev-confirm');
 const { checkSheetInput, setReadlineInterface } = require('./modules/sheet-input-check');
+const { waitForCompletionAndUpdateSheet, setReadlineInterface: setCompletionReadline } = require('./modules/sheet-completion');
 const path = require('path');
 const fs = require('fs');
 
@@ -123,6 +124,7 @@ async function checkMainProjectUpdate() {
   // sheet-input-check에서도 같은 인터페이스 사용
   const { rl: sharedRl } = require('./index-profile');
   setReadlineInterface(sharedRl);
+  setCompletionReadline(sharedRl);
   
   // 구글시트 입력 확인 (프로필 선택 전에 먼저 실행)
   await checkSheetInput();
@@ -196,6 +198,16 @@ async function checkMainProjectUpdate() {
       await logTotals(page);
       await clickIssueButton(page);
       await waitForUserConfirmClick(page);
+      
+      // 발급 완료 확인 및 시트 업데이트
+      await waitForCompletionAndUpdateSheet();
+      
+      // 프로세스 종료
+      const { rl: sharedRl } = require('./index-profile');
+      if (sharedRl && !sharedRl.closed) {
+        sharedRl.close();
+      }
+      process.exit(0);
     } else {
       await waitForLoginSuccess(page);
       const maxAttempts = 30;
@@ -254,6 +266,16 @@ async function checkMainProjectUpdate() {
           // 인증서 팝업 재등장 시 비밀번호만 입력 (확인 클릭 생략)
           const pickedAgain = await clickHddButtonOnCertModal(page);
           await inputCertPassword(page, pickedAgain?.pickedText || '', { clickConfirm: false });
+          
+          // 발급 완료 확인 및 시트 업데이트
+          await waitForCompletionAndUpdateSheet();
+          
+          // 프로세스 종료
+          const { rl: sharedRl } = require('./index-profile');
+          if (sharedRl && !sharedRl.closed) {
+            sharedRl.close();
+          }
+          process.exit(0);
           break;
         } catch (err) {
           if (isContextDestroyed(err) && attempt < maxAttempts) {
@@ -267,15 +289,12 @@ async function checkMainProjectUpdate() {
     }
   } catch (error) {
     console.error('자동화 중단:', error.message);
-  } finally {
-    // 프로세스 종료 시 readline 인터페이스 닫기
+    // 에러 발생 시에도 readline 인터페이스 닫기
     const { rl: sharedRl } = require('./index-profile');
     if (sharedRl && !sharedRl.closed) {
       sharedRl.close();
     }
+    process.exit(1);
   }
-
-  // 브라우저를 열린 상태로 유지
-  await new Promise(() => {});
 })();
 
