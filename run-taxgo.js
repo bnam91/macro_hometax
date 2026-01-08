@@ -17,6 +17,8 @@ const { getFirstActiveRow } = require('./modules/sheet-data');
 const { clickIssueButton, waitForUserConfirmClick } = require('./modules/hometax-issue');
 const { confirmRetry } = require('./modules/dev-confirm');
 const { checkSheetInput, setReadlineInterface } = require('./modules/sheet-input-check');
+const path = require('path');
+const fs = require('fs');
 
 // 개발자 모드 확인
 const isDevMode = process.argv.includes('dev') || process.env.NODE_ENV === 'development';
@@ -34,7 +36,89 @@ function isContextDestroyed(err) {
   );
 }
 
+// 서브모듈 버전 체크 함수
+async function checkSubmoduleUpdate() {
+  try {
+    const releaseUpdaterModule = await import('./submodules/module_update_auto/release_updater.js');
+    const ReleaseUpdater = releaseUpdaterModule.default;
+    
+    const owner = 'bnam91';
+    const repo = 'module_update_auto';
+    const versionFile = path.join(__dirname, 'submodules', 'module_update_auto', 'SUBMODULE_VERSION.txt');
+    
+    const updater = new ReleaseUpdater(owner, repo, versionFile);
+    const updateSuccess = await updater.updateToLatest();
+    
+    if (!updateSuccess) {
+      console.log('⚠️ 서브모듈 업데이트 체크 실패, 이전 버전으로 계속 진행합니다.');
+    }
+  } catch (error) {
+    console.error('서브모듈 버전 체크 중 오류 발생:', error.message);
+    console.log('⚠️ 서브모듈 업데이트 체크를 건너뛰고 계속 진행합니다.');
+  }
+}
+
+// 메인 프로젝트 버전 체크 함수
+async function checkMainProjectUpdate() {
+  try {
+    const releaseUpdaterModule = await import('./submodules/module_update_auto/release_updater.js');
+    const ReleaseUpdater = releaseUpdaterModule.default;
+    
+    const owner = 'bnam91';
+    const repo = 'macro_hometax';
+    const versionFile = path.join(__dirname, 'VERSION.txt');
+    
+    const updater = new ReleaseUpdater(owner, repo, versionFile);
+    const updateSuccess = await updater.updateToLatest();
+    
+    if (!updateSuccess) {
+      console.log('⚠️ 메인 프로젝트 업데이트 체크 실패, 이전 버전으로 계속 진행합니다.');
+    }
+  } catch (error) {
+    console.error('메인 프로젝트 버전 체크 중 오류 발생:', error.message);
+    console.log('⚠️ 메인 프로젝트 업데이트 체크를 건너뛰고 계속 진행합니다.');
+  }
+}
+
 (async () => {
+  try {
+    // 개발 모드 확인
+    if (isDevMode) {
+      console.log('🚨 개발자 모드입니다');
+      console.log('─'.repeat(50));
+      console.log('⚠️ 개발 모드에서는 업데이트 체크를 건너뜁니다.');
+      console.log('─'.repeat(50));
+    } else {
+      // 서브모듈 버전 업데이트 체크
+      console.log('🔄 서브모듈 버전 체크 중...');
+      await checkSubmoduleUpdate();
+      console.log('─'.repeat(50));
+
+      // 메인 프로젝트 버전 업데이트 체크
+      console.log('🔄 메인 프로젝트 버전 체크 중...');
+      await checkMainProjectUpdate();
+      console.log('─'.repeat(50));
+
+      // VERSION.txt에서 버전 정보 읽기
+      let version = 'unknown';
+      try {
+        const versionFile = path.join(__dirname, 'VERSION.txt');
+        if (fs.existsSync(versionFile)) {
+          const versionInfo = JSON.parse(fs.readFileSync(versionFile, 'utf8'));
+          version = versionInfo.tag_name || 'unknown';
+        }
+      } catch (error) {
+        console.error('버전 정보 읽기 오류:', error.message);
+      }
+      console.log(`📦 현재 버전: ${version}`);
+      console.log('─'.repeat(50));
+    }
+  } catch (error) {
+    console.error('버전 체크 중 오류 발생:', error.message);
+    console.log('⚠️ 버전 체크를 건너뛰고 계속 진행합니다.');
+    console.log('─'.repeat(50));
+  }
+
   // readline 인터페이스는 index-profile.js에서 이미 생성됨
   // sheet-input-check에서도 같은 인터페이스 사용
   const { rl: sharedRl } = require('./index-profile');
