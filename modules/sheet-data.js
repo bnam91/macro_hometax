@@ -56,5 +56,50 @@ async function getFirstActiveRow() {
   return matched[0] || null;
 }
 
-module.exports = { getFirstActiveRow };
+/**
+ * 거래처 시트에서 별칭으로 데이터 조회
+ * @param {string} alias - 별칭 (예: '채빈(꾸미다홈)')
+ * @returns {Object|null} 거래처 정보 { companyName, repName } 또는 null
+ */
+async function getBuyerInfoByAlias(alias) {
+  if (!alias) return null;
+  
+  try {
+    const creds = await auth.getCredentials();
+    const sheets = google.sheets({ version: 'v4', auth: creds });
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: '거래처!A1:H2000',
+      majorDimension: 'ROWS',
+    });
+    
+    const rows = res.data.values || [];
+    if (!rows || rows.length === 0) return null;
+    
+    // 헤더 제외하고 데이터 행만 확인 (인덱스 1부터)
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      const rowAlias = (row[0] || '').toString().trim(); // 컬럼 0: 별칭
+      
+      if (rowAlias === alias) {
+        const companyName = (row[1] || '').toString().trim(); // 컬럼 1: 상호
+        const repName = (row[3] || '').toString().trim(); // 컬럼 3: 성명1
+        
+        if (companyName || repName) {
+          return {
+            companyName: companyName || null,
+            repName: repName || null,
+          };
+        }
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('거래처 시트 조회 중 오류 발생:', error.message);
+    return null;
+  }
+}
+
+module.exports = { getFirstActiveRow, getBuyerInfoByAlias };
 

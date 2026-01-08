@@ -105,6 +105,12 @@ async function logBuyerFilledValues(page) {
   console.log(`  종목: ${item}`);
   console.log(`  이메일1: ${email1}`);
   console.log(`  이메일2: ${email2}`);
+
+  // 상호와 성명 반환
+  return {
+    companyName: name,
+    repName: repName,
+  };
 }
 
 module.exports = { logBuyerFilledValues };

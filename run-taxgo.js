@@ -5,7 +5,7 @@ const { clickHddButtonOnCertModal } = require('./modules/hometax-cert-selector')
 const { inputCertPassword } = require('./modules/hometax-password');
 const { waitForMainMenu, openSingleIssue } = require('./modules/hometax-menu-check');
 const { setupPopupHandlers } = require('./modules/hometax-popup-handler');
-const { fillBuyerBizNo, fillBuyerEmail } = require('./modules/hometax-buyer');
+const { fillBuyerBizNo, fillBuyerEmail, fillBuyerCompanyName, fillBuyerRepName } = require('./modules/hometax-buyer');
 const { isAlreadyLoggedIn } = require('./modules/hometax-login-check');
 const { printBranchTable, selectBranchByName } = require('./modules/hometax-branch-popup');
 const { logBuyerFilledValues } = require('./modules/hometax-buyer-read');
@@ -13,7 +13,7 @@ const { setWriteDate } = require('./modules/hometax-date');
 const { fillFirstItemRow, logFirstItemRowValues } = require('./modules/hometax-item');
 const { ensureClaimSelected } = require('./modules/hometax-receipt');
 const { logTotals } = require('./modules/hometax-totals');
-const { getFirstActiveRow } = require('./modules/sheet-data');
+const { getFirstActiveRow, getBuyerInfoByAlias } = require('./modules/sheet-data');
 const { clickIssueButton, waitForUserConfirmClick } = require('./modules/hometax-issue');
 const { confirmRetry } = require('./modules/dev-confirm');
 const { checkSheetInput, setReadlineInterface } = require('./modules/sheet-input-check');
@@ -180,7 +180,26 @@ async function checkMainProjectUpdate() {
       await selectBranchByName(page, companyName || '주식회사 팔도');
       await page.waitForTimeout(500);
       await fillBuyerEmail(page, sheetRow.email);
-      await logBuyerFilledValues(page);
+      const buyerValues = await logBuyerFilledValues(page);
+      
+      // 상호 또는 성명이 '-'인 경우 거래처 시트에서 조회하여 입력
+      if (buyerValues && (buyerValues.companyName === '-' || buyerValues.repName === '-')) {
+        console.log('ℹ️ 상호 또는 성명이 비어있어 거래처 시트에서 조회합니다.');
+        const buyerInfo = await getBuyerInfoByAlias(sheetRow.alias);
+        if (buyerInfo) {
+          if (buyerValues.companyName === '-' && buyerInfo.companyName) {
+            await fillBuyerCompanyName(page, buyerInfo.companyName);
+            await page.waitForTimeout(500);
+          }
+          if (buyerValues.repName === '-' && buyerInfo.repName) {
+            await fillBuyerRepName(page, buyerInfo.repName);
+            await page.waitForTimeout(500);
+          }
+        } else {
+          console.log('⚠️ 거래처 시트에서 해당 별칭을 찾지 못했습니다.');
+        }
+      }
+      
       // 작성일자 입력 (3초 대기 후)
       await page.waitForTimeout(3000);
       await setWriteDate(page, writeDateDigits);
@@ -247,7 +266,26 @@ async function checkMainProjectUpdate() {
           await selectBranchByName(page, companyName || '주식회사 팔도');
           await page.waitForTimeout(500);
           await fillBuyerEmail(page, sheetRow.email);
-          await logBuyerFilledValues(page);
+          const buyerValues = await logBuyerFilledValues(page);
+          
+          // 상호 또는 성명이 '-'인 경우 거래처 시트에서 조회하여 입력
+          if (buyerValues && (buyerValues.companyName === '-' || buyerValues.repName === '-')) {
+            console.log('ℹ️ 상호 또는 성명이 비어있어 거래처 시트에서 조회합니다.');
+            const buyerInfo = await getBuyerInfoByAlias(sheetRow.alias);
+            if (buyerInfo) {
+              if (buyerValues.companyName === '-' && buyerInfo.companyName) {
+                await fillBuyerCompanyName(page, buyerInfo.companyName);
+                await page.waitForTimeout(500);
+              }
+              if (buyerValues.repName === '-' && buyerInfo.repName) {
+                await fillBuyerRepName(page, buyerInfo.repName);
+                await page.waitForTimeout(500);
+              }
+            } else {
+              console.log('⚠️ 거래처 시트에서 해당 별칭을 찾지 못했습니다.');
+            }
+          }
+          
           await page.waitForTimeout(3000);
           await setWriteDate(page, writeDateDigits);
           await page.waitForTimeout(1000);

@@ -186,5 +186,73 @@ async function fillBuyerEmail(page, email) {
   console.log(`✅ 이메일 입력 완료: ${localPart}@${domainPart}`);
 }
 
-module.exports = { fillBuyerBizNo, fillBuyerEmail };
+/**
+ * 공급받는자 상호 입력
+ * @param {import('puppeteer').Page} page
+ * @param {string} companyName - 상호명
+ */
+async function fillBuyerCompanyName(page, companyName) {
+  if (!companyName || companyName === '-') {
+    return;
+  }
+
+  const NAME_SELECTOR = '#mf_txppWframe_edtDmnrTnmNmTop';
+  const found = await waitForSelectorInAnyFrame(page, NAME_SELECTOR, { timeout: 8000 });
+  if (!found) {
+    console.log('⚠️ 상호 입력 필드를 찾지 못했습니다.');
+    return;
+  }
+  const { frame, handle } = found;
+
+  try {
+    await handle.click({ clickCount: 3 });
+    await handle.type(companyName, { delay: 50 });
+    await frame.evaluate((sel) => {
+      const el = document.querySelector(sel);
+      if (!el) return;
+      ['input', 'change', 'blur', 'keyup'].forEach((type) => {
+        el.dispatchEvent(new Event(type, { bubbles: true }));
+      });
+    }, NAME_SELECTOR);
+    console.log(`✅ 상호 입력 완료: ${companyName}`);
+  } catch (error) {
+    console.error('상호 입력 중 오류 발생:', error.message);
+  }
+}
+
+/**
+ * 공급받는자 성명 입력
+ * @param {import('puppeteer').Page} page
+ * @param {string} repName - 성명
+ */
+async function fillBuyerRepName(page, repName) {
+  if (!repName || repName === '-') {
+    return;
+  }
+
+  const REP_NAME_SELECTOR = '#mf_txppWframe_edtDmnrRprsFnmTop';
+  const found = await waitForSelectorInAnyFrame(page, REP_NAME_SELECTOR, { timeout: 8000 });
+  if (!found) {
+    console.log('⚠️ 성명 입력 필드를 찾지 못했습니다.');
+    return;
+  }
+  const { frame, handle } = found;
+
+  try {
+    await handle.click({ clickCount: 3 });
+    await handle.type(repName, { delay: 50 });
+    await frame.evaluate((sel) => {
+      const el = document.querySelector(sel);
+      if (!el) return;
+      ['input', 'change', 'blur', 'keyup'].forEach((type) => {
+        el.dispatchEvent(new Event(type, { bubbles: true }));
+      });
+    }, REP_NAME_SELECTOR);
+    console.log(`✅ 성명 입력 완료: ${repName}`);
+  } catch (error) {
+    console.error('성명 입력 중 오류 발생:', error.message);
+  }
+}
+
+module.exports = { fillBuyerBizNo, fillBuyerEmail, fillBuyerCompanyName, fillBuyerRepName };
 
